@@ -1,0 +1,8 @@
+.expo/
+.expo
+node_modules/
+npm-debug.log*
+yarn-error.log
+.expo-shared/
+.env*
+.DS_Store
