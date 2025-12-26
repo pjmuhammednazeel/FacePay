@@ -1,4 +1,6 @@
 # FacePay root ignore
+
+# Mobile App
 FacePayMobile/node_modules/
 FacePayMobile/.expo/
 FacePayMobile/.expo
@@ -7,3 +9,35 @@ FacePayMobile/npm-debug.log*
 FacePayMobile/yarn-error.log
 FacePayMobile/.env*
 FacePayMobile/.DS_Store
+FacePayMobile/.cache/
+FacePayMobile/.vscode/
+
+# Mobile Android build artifacts
+FacePayMobile/android/.gradle/
+FacePayMobile/android/.idea/
+FacePayMobile/android/local.properties
+FacePayMobile/android/app/build/
+FacePayMobile/android/build/
+FacePayMobile/android/*.iml
+FacePayMobile/android/app/*.keystore
+
+# React Native/Metro
+FacePayMobile/ios/Pods/
+FacePayMobile/ios/build/
+
+# Backend
+FacePayBackend/.env
+FacePayBackend/node_modules/
+FacePayBackend/npm-debug.log*
+FacePayBackend/yarn-error.log
+FacePayBackend/coverage/
+FacePayBackend/.nyc_output/
+FacePayBackend/debug.log
+
+# Environment variables
+.env
+.env.local
+
+# OS Files
+.DS_Store
+Thumbs.db
