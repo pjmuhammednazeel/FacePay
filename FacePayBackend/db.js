@@ -14,6 +14,7 @@ const createUsersTable = async () => {
   const query = `
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
+      name VARCHAR(255),
       phone_number VARCHAR(20) UNIQUE NOT NULL,
       account_number VARCHAR(50) NOT NULL,
       bank_name VARCHAR(100) NOT NULL,

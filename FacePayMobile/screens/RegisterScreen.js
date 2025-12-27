@@ -13,8 +13,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { generateFaceEmbeddingFromImage } from '../utils/faceEmbedding';
-
-const API_URL = 'http://192.168.1.11:3000/api';
+import API_URL from '../config/api';
 
 export default function RegisterScreen({ navigation }) {
   const [formData, setFormData] = useState({

@@ -9,8 +9,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const API_URL = 'http://192.168.1.11:3000/api';
+import API_URL from '../config/api';
 
 export default function LoginScreen({ navigation }) {
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -43,8 +42,8 @@ export default function LoginScreen({ navigation }) {
 
       if (data.success) {
         Alert.alert('Success', 'Login successful!');
-        // Navigate to main app or dashboard
-        // navigation.navigate('Dashboard');
+        // Navigate to Dashboard with user data
+        navigation.navigate('Dashboard', { user: data.user });
       } else {
         Alert.alert('Error', data.message || 'Login failed');
       }

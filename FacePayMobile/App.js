@@ -4,6 +4,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import HomeScreen from './screens/HomeScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
+import DashboardScreen from './screens/DashboardScreen';
 
 const Stack = createStackNavigator();
 
@@ -36,6 +37,11 @@ export default function App() {
           name="Register" 
           component={RegisterScreen}
           options={{ title: 'Register' }}
+        />
+        <Stack.Screen 
+          name="Dashboard" 
+          component={DashboardScreen}
+          options={{ title: 'Dashboard', headerBackVisible: false }}
         />
       </Stack.Navigator>
       <StatusBar style="auto" />

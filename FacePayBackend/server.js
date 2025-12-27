@@ -61,12 +61,12 @@ app.post('/api/register', async (req, res) => {
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    // Insert new user with face embedding
+    // Insert new user with face embedding and name from bank
     const newUser = await pool.query(
-      `INSERT INTO users (phone_number, account_number, bank_name, password_hash, face_embedding) 
-       VALUES ($1, $2, $3, $4, $5) 
-       RETURNING id, phone_number, account_number, bank_name, created_at`,
-      [phoneNumber, accountNumber, bankName, passwordHash, faceEmbedding]
+      `INSERT INTO users (name, phone_number, account_number, bank_name, password_hash, face_embedding) 
+       VALUES ($1, $2, $3, $4, $5, $6) 
+       RETURNING id, name, phone_number, account_number, bank_name, created_at`,
+      [bankValidation.accountDetails.name, phoneNumber, accountNumber, bankName, passwordHash, faceEmbedding]
     );
 
     res.status(201).json({
@@ -125,6 +125,7 @@ app.post('/api/login', async (req, res) => {
       message: 'Login successful',
       user: {
         id: user.id,
+        name: user.name,
         phoneNumber: user.phone_number,
         accountNumber: user.account_number,
         bankName: user.bank_name
