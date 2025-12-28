@@ -1,6 +1,7 @@
 import * as tf from '@tensorflow/tfjs';
 import * as facemesh from '@tensorflow-models/facemesh';
 import * as FileSystem from 'expo-file-system/legacy';
+import API_URL from '../config/api';
 
 let faceMeshModel = null;
 
@@ -10,6 +11,58 @@ export const loadFaceMeshModel = async () => {
     faceMeshModel = await facemesh.load();
   }
   return faceMeshModel;
+};
+
+// Extract face embedding using ArcFace (InsightFace) via backend
+export const extractFaceEmbeddingArcFace = async (imageUri) => {
+  try {
+    // Read the image as base64
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    // Send to backend for ArcFace processing
+    console.log(`Sending face embedding request to: ${API_URL}/extract-arcface-embedding`);
+    
+    const response = await fetch(`${API_URL}/extract-arcface-embedding`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        image: base64,
+      }),
+    });
+
+    console.log(`Response status: ${response.status}`);
+    const contentType = response.headers.get('content-type');
+    console.log(`Response content-type: ${contentType}`);
+
+    const responseText = await response.text();
+    console.log(`Response body: ${responseText.substring(0, 200)}...`);
+
+    if (!response.ok) {
+      console.error(`Backend error: ${response.status} - ${responseText}`);
+      throw new Error(`Backend returned ${response.status}: ${responseText.substring(0, 100)}`);
+    }
+
+    const data = JSON.parse(responseText);
+
+    if (data.success && data.embedding) {
+      console.log(`Successfully extracted ArcFace embedding (${data.embedding.length} dimensions)`);
+      return data.embedding;
+    } else {
+      console.warn('ArcFace extraction failed, using fallback method');
+      console.warn(`Error from backend: ${data.error || 'Unknown error'}`);
+      // Fallback to local processing if backend fails
+      return await generateFaceEmbeddingFromImage(imageUri);
+    }
+  } catch (error) {
+    console.error('Error extracting ArcFace embedding:', error);
+    console.error('Error details:', error.message);
+    // Fallback to local processing
+    return await generateFaceEmbeddingFromImage(imageUri);
+  }
 };
 
 // Extract face landmarks and create embedding

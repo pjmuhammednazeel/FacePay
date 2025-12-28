@@ -12,7 +12,7 @@ import {
   Image
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { generateFaceEmbeddingFromImage } from '../utils/faceEmbedding';
+import { generateFaceEmbeddingFromImage, extractFaceEmbeddingArcFace } from '../utils/faceEmbedding';
 import API_URL from '../config/api';
 
 export default function RegisterScreen({ navigation }) {
@@ -65,12 +65,13 @@ export default function RegisterScreen({ navigation }) {
   const extractEmbedding = async (imageUri) => {
     setExtractingEmbedding(true);
     try {
-      const embedding = await generateFaceEmbeddingFromImage(imageUri);
+      // Use ArcFace for better face recognition
+      const embedding = await extractFaceEmbeddingArcFace(imageUri);
       setFormData(prev => ({
         ...prev,
         faceEmbedding: embedding
       }));
-      Alert.alert('Success', 'Face embedding extracted successfully');
+      Alert.alert('Success', 'Face embedding extracted successfully using ArcFace');
     } catch (error) {
       console.error('Error extracting embedding:', error);
       Alert.alert('Error', 'Failed to extract face embedding. Please try another image.');

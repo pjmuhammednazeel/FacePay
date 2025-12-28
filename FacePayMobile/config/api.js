@@ -16,7 +16,7 @@ const API_CONFIG = {
 };
 
 // Automatically select the correct URL
-export const API_URL = API_CONFIG.USE_EMULATOR 
+const API_URL = API_CONFIG.USE_EMULATOR 
   ? `http://10.0.2.2:${API_CONFIG.PORT}/api`
   : `http://${API_CONFIG.PHYSICAL_DEVICE_IP}:${API_CONFIG.PORT}/api`;
 

@@ -5,6 +5,7 @@ import HomeScreen from './screens/HomeScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import DashboardScreen from './screens/DashboardScreen';
+import PaymentScreen from './screens/PaymentScreen';
 
 const Stack = createStackNavigator();
 
@@ -42,6 +43,11 @@ export default function App() {
           name="Dashboard" 
           component={DashboardScreen}
           options={{ title: 'Dashboard', headerBackVisible: false }}
+        />
+        <Stack.Screen 
+          name="Payment" 
+          component={PaymentScreen}
+          options={{ title: 'Receive Payment', headerShown: false }}
         />
       </Stack.Navigator>
       <StatusBar style="auto" />

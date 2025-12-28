@@ -3,6 +3,7 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const pool = require('./db');
 const { validateAccountAndPhone } = require('./bankApi');
+const insightFaceService = require('./insightFaceService');
 require('dotenv').config();
 
 const app = express();
@@ -66,7 +67,14 @@ app.post('/api/register', async (req, res) => {
       `INSERT INTO users (name, phone_number, account_number, bank_name, password_hash, face_embedding) 
        VALUES ($1, $2, $3, $4, $5, $6) 
        RETURNING id, name, phone_number, account_number, bank_name, created_at`,
-      [bankValidation.accountDetails.name, phoneNumber, accountNumber, bankName, passwordHash, faceEmbedding]
+      [
+        bankValidation.accountDetails.name, 
+        phoneNumber, 
+        accountNumber, 
+        bankName, 
+        passwordHash, 
+        faceEmbedding ? JSON.stringify(faceEmbedding) : null
+      ]
     );
 
     res.status(201).json({
@@ -217,6 +225,200 @@ function calculateCosineSimilarity(embedding1, embedding2) {
 
   return dotProduct / (magnitude1 * magnitude2);
 }
+
+// Extract ArcFace embedding from image using InsightFace
+app.post('/api/extract-arcface-embedding', async (req, res) => {
+  console.log('=== Received extract-arcface-embedding request ===');
+  const { image } = req.body;
+
+  if (!image) {
+    console.log('No image provided in request body');
+    return res.status(400).json({
+      success: false,
+      message: 'Image data is required'
+    });
+  }
+
+  try {
+    console.log('Calling insightFaceService.extractEmbedding...');
+    const embedding = await insightFaceService.extractEmbedding(image);
+    console.log(`Successfully extracted embedding with ${embedding.length} dimensions`);
+    console.log(`First 10 values: ${JSON.stringify(embedding.slice(0, 10))}`);
+    
+    const response = {
+      success: true,
+      embedding: embedding,
+      dimension: embedding.length
+    };
+    
+    console.log('Sending response...');
+    res.json(response);
+    console.log('Response sent successfully');
+  } catch (error) {
+    console.error('ArcFace embedding extraction error:', error.message);
+    console.error('Full error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to extract face embedding: ' + error.message
+    });
+  }
+});
+
+// Identify receiver by face embedding
+app.post('/api/identify-receiver', async (req, res) => {
+  console.log('=== Received identify-receiver request ===');
+  const { faceEmbedding, senderId } = req.body;
+  console.log(`Embedding dimensions: ${faceEmbedding?.length || 'undefined'}`);
+  console.log(`Sender ID: ${senderId}`);
+
+  if (!faceEmbedding || !Array.isArray(faceEmbedding)) {
+    console.log('Invalid embedding format');
+    return res.status(400).json({
+      success: false,
+      message: 'Face embedding is required'
+    });
+  }
+
+  try {
+    // Get all users except the sender
+    const usersQuery = senderId 
+      ? 'SELECT id, name, phone_number, account_number, bank_name, face_embedding FROM users WHERE id != $1'
+      : 'SELECT id, name, phone_number, account_number, bank_name, face_embedding FROM users';
+    
+    const params = senderId ? [senderId] : [];
+    const users = await pool.query(usersQuery, params);
+    console.log(`Found ${users.rows.length} users in database`);
+
+    if (users.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No users found'
+      });
+    }
+
+    // Find best matching face using ArcFace similarity
+    const storedEmbeddings = users.rows.map(user => {
+      // Parse embedding from database
+      let embedding = user.face_embedding;
+      if (typeof embedding === 'string') {
+        try {
+          embedding = JSON.parse(embedding);
+        } catch (e) {
+          console.warn(`Failed to parse embedding for user ${user.id}`);
+          embedding = [];
+        }
+      }
+      
+      return {
+        id: user.id,
+        name: user.name,
+        phoneNumber: user.phone_number,
+        accountNumber: user.account_number,
+        bankName: user.bank_name,
+        embedding: embedding
+      };
+    });
+
+    // Use higher threshold for ArcFace (0.5 is good for ArcFace)
+    const bestMatch = insightFaceService.findBestMatch(faceEmbedding, storedEmbeddings, 0.5);
+    console.log(`Best match: ${bestMatch ? bestMatch.name + ' (similarity: ' + bestMatch.similarity + ')' : 'none'}`);
+
+    if (!bestMatch) {
+      return res.status(404).json({
+        success: false,
+        message: 'No matching face found. Please ensure the receiver is registered.'
+      });
+    }
+
+    console.log('Sending successful receiver identification response');
+    res.json({
+      success: true,
+      message: 'Receiver identified successfully',
+      receiver: {
+        id: bestMatch.id,
+        name: bestMatch.name,
+        phoneNumber: bestMatch.phoneNumber,
+        accountNumber: bestMatch.accountNumber,
+        bankName: bestMatch.bankName,
+        similarity: bestMatch.similarity
+      }
+    });
+
+  } catch (error) {
+    console.error('Receiver identification error:', error.message);
+    console.error('Full error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during face identification: ' + error.message
+    });
+  }
+});
+
+// Make payment endpoint
+app.post('/api/make-payment', async (req, res) => {
+  const { senderId, receiverId, amount } = req.body;
+
+  if (!senderId || !receiverId || !amount) {
+    return res.status(400).json({
+      success: false,
+      message: 'Sender ID, receiver ID, and amount are required'
+    });
+  }
+
+  if (amount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Amount must be greater than 0'
+    });
+  }
+
+  if (senderId === receiverId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Cannot send payment to yourself'
+    });
+  }
+
+  try {
+    // Get sender and receiver information
+    const sender = await pool.query('SELECT * FROM users WHERE id = $1', [senderId]);
+    const receiver = await pool.query('SELECT * FROM users WHERE id = $1', [receiverId]);
+
+    if (sender.rows.length === 0 || receiver.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Sender or receiver not found'
+      });
+    }
+
+    // In a real application, you would:
+    // 1. Check sender's bank balance
+    // 2. Initiate bank transfer via bank API
+    // 3. Record transaction in database
+    // 4. Send notifications
+
+    // For now, we'll simulate a successful payment
+    // You should create a transactions table to store payment history
+    
+    res.json({
+      success: true,
+      message: 'Payment processed successfully',
+      transaction: {
+        from: sender.rows[0].name,
+        to: receiver.rows[0].name,
+        amount: amount,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Payment error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during payment processing'
+    });
+  }
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
