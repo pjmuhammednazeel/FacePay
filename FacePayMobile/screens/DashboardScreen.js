@@ -34,7 +34,7 @@ export default function DashboardScreen({ navigation, route }) {
   };
 
   const handleScanFace = () => {
-    navigation.navigate('Payment');
+    navigation.navigate('Payment', { user });
   };
 
   return (

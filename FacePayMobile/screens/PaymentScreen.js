@@ -8,6 +8,9 @@ import {
   Alert,
   ActivityIndicator,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -28,6 +31,16 @@ export default function PaymentScreen({ navigation, route }) {
       requestPermission();
     }
   }, [permission]);
+
+  // Safely parse JSON; throw with raw text if parsing fails
+  const parseJsonSafe = async (response) => {
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch (err) {
+      throw new Error(`Non-JSON response (status ${response.status}): ${text.slice(0, 200)}`);
+    }
+  };
 
   const handleCameraReady = () => {
     setCameraReady(true);
@@ -68,7 +81,7 @@ export default function PaymentScreen({ navigation, route }) {
         }),
       });
 
-      const data = await response.json();
+      const data = await parseJsonSafe(response);
 
       if (data.success) {
         setReceiverInfo(data.receiver);
@@ -114,7 +127,7 @@ export default function PaymentScreen({ navigation, route }) {
         }
 
         // Send to server to identify receiver
-        const response = await fetch(`${API_URL}/api/identify-receiver`, {
+        const response = await fetch(`${API_URL}/identify-receiver`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -125,7 +138,7 @@ export default function PaymentScreen({ navigation, route }) {
           }),
         });
 
-        const data = await response.json();
+        const data = await parseJsonSafe(response);
 
         if (data.success) {
           setReceiverInfo(data.receiver);
@@ -146,31 +159,37 @@ export default function PaymentScreen({ navigation, route }) {
   };
 
   const handleMakePayment = async () => {
-    if (!receiverInfo) {
+    if (!user?.id) {
+      Alert.alert('Error', 'User info missing. Please log in again.');
+      return;
+    }
+
+    if (!receiverInfo?.id) {
       Alert.alert('Error', 'Please scan receiver\'s face first');
       return;
     }
 
-    if (!amount || parseFloat(amount) <= 0) {
+    const amountValue = parseFloat(amount);
+    if (!amount || Number.isNaN(amountValue) || amountValue <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
       return;
     }
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/make-payment`, {
+      const response = await fetch(`${API_URL}/make-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          senderId: user.id,
-          receiverId: receiverInfo.id,
-          amount: parseFloat(amount),
+          senderId: receiverInfo.id,
+          receiverId: user.id,
+          amount: amountValue,
         }),
       });
 
-      const data = await response.json();
+      const data = await parseJsonSafe(response);
 
       if (data.success) {
         Alert.alert(
@@ -220,111 +239,122 @@ export default function PaymentScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>Scan Receiver's Face</Text>
-      </View>
-
-      <View style={styles.cameraContainer}>
-        <CameraView
-          ref={cameraRef}
-          style={styles.camera}
-          facing="front"
-          onCameraReady={handleCameraReady}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={80}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.overlay}>
-            <View style={styles.faceFrame} />
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Text style={styles.backButton}>← Back</Text>
+            </TouchableOpacity>
+            <Text style={styles.title}>Scan Receiver's Face</Text>
           </View>
-        </CameraView>
-      </View>
 
-      {receiverInfo && (
-        <View style={styles.receiverInfoContainer}>
-          <Text style={styles.receiverInfoTitle}>Receiver Identified ✓</Text>
-          <Text style={styles.receiverName}>{receiverInfo.name}</Text>
-          <Text style={styles.receiverDetails}>
-            Account: {receiverInfo.accountNumber}
+          <View style={styles.cameraContainer}>
+            <CameraView
+              ref={cameraRef}
+              style={styles.camera}
+              facing="front"
+              onCameraReady={handleCameraReady}
+            >
+              <View style={styles.overlay}>
+                <View style={styles.faceFrame} />
+              </View>
+            </CameraView>
+          </View>
+
+          {receiverInfo && (
+            <View style={styles.receiverInfoContainer}>
+              <Text style={styles.receiverInfoTitle}>Receiver Identified ✓</Text>
+              <Text style={styles.receiverName}>{receiverInfo.name}</Text>
+              <Text style={styles.receiverDetails}>
+                Account: {receiverInfo.accountNumber}
+              </Text>
+              <Text style={styles.receiverDetails}>
+                Bank: {receiverInfo.bankName}
+              </Text>
+              <Text style={styles.receiverDetails}>
+                Confidence: {(receiverInfo.similarity * 100).toFixed(1)}%
+              </Text>
+            </View>
+          )}
+
+          {receiverInfo && (
+            <View style={styles.amountContainer}>
+              <Text style={styles.amountLabel}>Enter Amount:</Text>
+              <TextInput
+                style={styles.amountInput}
+                placeholder="0.00"
+                value={amount}
+                onChangeText={setAmount}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          )}
+
+          <View style={styles.buttonContainer}>
+            {!receiverInfo ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.captureButton, loading && styles.disabledButton]}
+                  onPress={captureFace}
+                  disabled={loading || !cameraReady}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.captureButtonText}>📸 Capture Face</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.galleryButton, loading && styles.disabledButton]}
+                  onPress={pickImageFromGallery}
+                  disabled={loading}
+                >
+                  <Text style={styles.galleryButtonText}>🖼️ Choose from Gallery</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={[styles.paymentButton, loading && styles.disabledButton]}
+                  onPress={handleMakePayment}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.captureButtonText}>💳 Make Payment</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.resetButton, loading && styles.disabledButton]}
+                  onPress={() => {
+                    setReceiverInfo(null);
+                    setAmount('');
+                  }}
+                  disabled={loading}
+                >
+                  <Text style={styles.resetButtonText}>🔄 Scan Again</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
+          <Text style={styles.instructionText}>
+            {!receiverInfo
+              ? 'Position the receiver\'s face within the frame and capture'
+              : 'Enter amount and complete payment'}
           </Text>
-          <Text style={styles.receiverDetails}>
-            Bank: {receiverInfo.bankName}
-          </Text>
-          <Text style={styles.receiverDetails}>
-            Confidence: {(receiverInfo.similarity * 100).toFixed(1)}%
-          </Text>
-        </View>
-      )}
-
-      {receiverInfo && (
-        <View style={styles.amountContainer}>
-          <Text style={styles.amountLabel}>Enter Amount:</Text>
-          <TextInput
-            style={styles.amountInput}
-            placeholder="0.00"
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="decimal-pad"
-          />
-        </View>
-      )}
-
-      <View style={styles.buttonContainer}>
-        {!receiverInfo ? (
-          <>
-            <TouchableOpacity
-              style={[styles.captureButton, loading && styles.disabledButton]}
-              onPress={captureFace}
-              disabled={loading || !cameraReady}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.captureButtonText}>📸 Capture Face</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.galleryButton, loading && styles.disabledButton]}
-              onPress={pickImageFromGallery}
-              disabled={loading}
-            >
-              <Text style={styles.galleryButtonText}>🖼️ Choose from Gallery</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <TouchableOpacity
-              style={[styles.paymentButton, loading && styles.disabledButton]}
-              onPress={handleMakePayment}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.captureButtonText}>💳 Make Payment</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.resetButton, loading && styles.disabledButton]}
-              onPress={() => {
-                setReceiverInfo(null);
-                setAmount('');
-              }}
-              disabled={loading}
-            >
-              <Text style={styles.resetButtonText}>🔄 Scan Again</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-
-      <Text style={styles.instructionText}>
-        {!receiverInfo
-          ? 'Position the receiver\'s face within the frame and capture'
-          : 'Enter amount and complete payment'}
-      </Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -421,6 +451,10 @@ const styles = StyleSheet.create({
   buttonContainer: {
     paddingHorizontal: 20,
     marginTop: 10,
+    paddingBottom: 32, // extra bottom space so buttons are fully visible on devices with gesture bars
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   captureButton: {
     backgroundColor: '#6366f1',

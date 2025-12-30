@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const pool = require('./db');
-const { validateAccountAndPhone } = require('./bankApi');
+const { validateAccountAndPhone, getAccountBalance, initiateTransfer } = require('./bankApi');
 const insightFaceService = require('./insightFaceService');
 require('dotenv').config();
 
@@ -356,7 +356,7 @@ app.post('/api/identify-receiver', async (req, res) => {
 
 // Make payment endpoint
 app.post('/api/make-payment', async (req, res) => {
-  const { senderId, receiverId, amount } = req.body;
+  const { senderId, receiverId, amount, faceSimilarity } = req.body;
 
   if (!senderId || !receiverId || !amount) {
     return res.status(400).json({
@@ -391,31 +391,63 @@ app.post('/api/make-payment', async (req, res) => {
       });
     }
 
-    // In a real application, you would:
-    // 1. Check sender's bank balance
-    // 2. Initiate bank transfer via bank API
-    // 3. Record transaction in database
-    // 4. Send notifications
+    const senderData = sender.rows[0];
+    const receiverData = receiver.rows[0];
 
-    // For now, we'll simulate a successful payment
-    // You should create a transactions table to store payment history
+    console.log(`Processing payment: ${senderData.name} (${senderData.account_number}) -> ${receiverData.name} (${receiverData.account_number}), Amount: ₹${amount}`);
+
+    // Check sender's account balance with bank API
+    console.log(`Checking balance for account: ${senderData.account_number}`);
+    const balanceCheck = await getAccountBalance(senderData.account_number);
+    console.log('Balance check result:', balanceCheck);
+    
+    if (!balanceCheck.valid || balanceCheck.balance < amount) {
+      return res.status(400).json({
+        success: false,
+        message: 'Insufficient funds in account'
+      });
+    }
+
+    // Initiate transfer through bank API
+    console.log(`Initiating transfer from ${senderData.account_number} to ${receiverData.account_number}`);
+    const transferResult = await initiateTransfer(
+      senderData.account_number,
+      receiverData.account_number,
+      amount
+    );
+    console.log('Transfer result:', transferResult);
+
+    // Return bank API transaction data without storing in FacePay DB
+    console.log('Payment processed successfully');
     
     res.json({
       success: true,
-      message: 'Payment processed successfully',
+      message: 'Payment processed successfully via face recognition',
       transaction: {
-        from: sender.rows[0].name,
-        to: receiver.rows[0].name,
+        from: senderData.name,
+        fromAccount: senderData.account_number,
+        to: receiverData.name,
+        toAccount: receiverData.account_number,
         amount: amount,
+        faceSimilarity: faceSimilarity,
+        bankTransactionIdFrom: transferResult.raw?.from_transaction?.id,
+        bankTransactionIdTo: transferResult.raw?.to_transaction?.id,
+        senderNewBalance: transferResult.raw?.from_account?.balance,
+        receiverNewBalance: transferResult.raw?.to_account?.balance,
         timestamp: new Date().toISOString()
       }
     });
 
   } catch (error) {
-    console.error('Payment error:', error);
-    res.status(500).json({
+    console.error('Payment error:', error.message);
+    
+    // Determine if it's a bank API error or internal error
+    const isBankError = error.message.includes('bank') || error.message.includes('transfer');
+    
+    res.status(isBankError ? 402 : 500).json({
       success: false,
-      message: 'Server error during payment processing'
+      message: error.message || 'Server error during payment processing',
+      errorType: isBankError ? 'bank_error' : 'server_error'
     });
   }
 });
