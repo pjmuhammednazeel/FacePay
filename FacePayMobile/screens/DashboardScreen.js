@@ -5,9 +5,9 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
@@ -35,6 +35,14 @@ export default function DashboardScreen({ navigation, route }) {
 
   const handleScanFace = () => {
     navigation.navigate('Payment', { user });
+  };
+
+  const handleViewTransactions = () => {
+    navigation.navigate('Transactions', { user });
+  };
+
+  const handleChangePassword = () => {
+    navigation.navigate('ChangePassword', { user });
   };
 
   return (
@@ -74,10 +82,10 @@ export default function DashboardScreen({ navigation, route }) {
               <TouchableOpacity style={[styles.actionButton, styles.scanActionButton]} onPress={handleScanFace}>
                 <Text style={styles.actionButtonText}>📸 Scan Face - Receive Payment</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={styles.actionButton} onPress={handleViewTransactions}>
                 <Text style={styles.actionButtonText}>💳 View Transactions</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity style={styles.actionButton} onPress={handleChangePassword}>
                 <Text style={styles.actionButtonText}>🔐 Change Password</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionButton}>

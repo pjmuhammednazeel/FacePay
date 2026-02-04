@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   Alert,
   ActivityIndicator,
   TextInput,
@@ -12,9 +11,11 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { extractFaceEmbeddingArcFace } from '../utils/faceEmbedding';
+import { verifyLiveness, getLivenessDescription } from '../utils/livenessDetection';
 import API_URL from '../config/api';
 
 export default function PaymentScreen({ navigation, route }) {
@@ -23,6 +24,7 @@ export default function PaymentScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [receiverInfo, setReceiverInfo] = useState(null);
   const [amount, setAmount] = useState('');
+  const [cameraFacing, setCameraFacing] = useState('front');
   const cameraRef = useRef(null);
   const user = route.params?.user || {};
 
@@ -46,6 +48,10 @@ export default function PaymentScreen({ navigation, route }) {
     setCameraReady(true);
   };
 
+  const toggleCameraFacing = () => {
+    setCameraFacing((current) => (current === 'front' ? 'back' : 'front'));
+  };
+
   const captureFace = async () => {
     if (!cameraRef.current || !cameraReady) {
       Alert.alert('Error', 'Camera not ready');
@@ -59,6 +65,22 @@ export default function PaymentScreen({ navigation, route }) {
         quality: 0.8,
         base64: true,
       });
+
+      // Verify liveness - ensure face is from a live person
+      Alert.alert('Verifying...', 'Checking if face is live...');
+      const livenessResult = await verifyLiveness(photo.uri, 0.15);
+      
+      if (!livenessResult.verified) {
+        Alert.alert(
+          'Liveness Check Failed',
+          `${livenessResult.message}\n\nLiveness Score: ${livenessResult.liveness_score.toFixed(2)}\n\nPlease try again with a live face.`,
+          [{ text: 'OK', onPress: () => setLoading(false) }]
+        );
+        setLoading(false);
+        return;
+      }
+
+      Alert.alert('Liveness Verified', `Confidence: ${livenessResult.confidence || 'N/A'}`);
 
       // Extract face embedding using ArcFace
       const faceEmbedding = await extractFaceEmbeddingArcFace(photo.uri);
@@ -95,64 +117,6 @@ export default function PaymentScreen({ navigation, route }) {
     } catch (error) {
       console.error('Face capture error:', error);
       Alert.alert('Error', 'Failed to process face. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const pickImageFromGallery = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permissionResult.granted === false) {
-      Alert.alert('Permission Required', 'Camera roll permission is required to select photos');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (!result.canceled) {
-        const faceEmbedding = await extractFaceEmbeddingArcFace(result.assets[0].uri);
-
-        if (!faceEmbedding || faceEmbedding.length === 0) {
-          Alert.alert('Error', 'No face detected in the image.');
-          setLoading(false);
-          return;
-        }
-
-        // Send to server to identify receiver
-        const response = await fetch(`${API_URL}/identify-receiver`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            faceEmbedding,
-            senderId: user.id,
-          }),
-        });
-
-        const data = await parseJsonSafe(response);
-
-        if (data.success) {
-          setReceiverInfo(data.receiver);
-          Alert.alert(
-            'Receiver Identified',
-            `Receiver: ${data.receiver.name}\nAccount: ${data.receiver.accountNumber}\n\nPlease enter the payment amount.`
-          );
-        } else {
-          Alert.alert('Error', data.message || 'Failed to identify receiver');
-        }
-      }
-    } catch (error) {
-      console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to process image. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -259,13 +223,25 @@ export default function PaymentScreen({ navigation, route }) {
             <CameraView
               ref={cameraRef}
               style={styles.camera}
-              facing="front"
+              facing={cameraFacing}
               onCameraReady={handleCameraReady}
             >
               <View style={styles.overlay}>
                 <View style={styles.faceFrame} />
               </View>
             </CameraView>
+          </View>
+
+          <View style={styles.cameraControls}>
+            <TouchableOpacity
+              style={styles.switchCameraButton}
+              onPress={toggleCameraFacing}
+              disabled={loading}
+            >
+              <Text style={styles.switchCameraText}>
+                🔄 Switch Camera ({cameraFacing === 'front' ? 'Front' : 'Back'})
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {receiverInfo && (
@@ -310,14 +286,6 @@ export default function PaymentScreen({ navigation, route }) {
                   ) : (
                     <Text style={styles.captureButtonText}>📸 Capture Face</Text>
                   )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.galleryButton, loading && styles.disabledButton]}
-                  onPress={pickImageFromGallery}
-                  disabled={loading}
-                >
-                  <Text style={styles.galleryButtonText}>🖼️ Choose from Gallery</Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -390,6 +358,23 @@ const styles = StyleSheet.create({
   },
   camera: {
     flex: 1,
+  },
+  cameraControls: {
+    paddingHorizontal: 20,
+    marginBottom: 10,
+  },
+  switchCameraButton: {
+    backgroundColor: '#fff',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#6366f1',
+  },
+  switchCameraText: {
+    color: '#6366f1',
+    fontSize: 16,
+    fontWeight: '600',
   },
   overlay: {
     flex: 1,

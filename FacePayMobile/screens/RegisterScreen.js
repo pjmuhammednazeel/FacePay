@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  SafeAreaView, 
   View, 
   Text, 
   TextInput, 
@@ -11,6 +10,7 @@ import {
   ActivityIndicator,
   Image
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { generateFaceEmbeddingFromImage, extractFaceEmbeddingArcFace } from '../utils/faceEmbedding';
 import API_URL from '../config/api';
