@@ -27,6 +27,35 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
 
     try {
+      // Check if it's an admin login attempt (non-numeric username)
+      const isAdminLogin = isNaN(phoneNumber) || phoneNumber.includes('@') || phoneNumber.toLowerCase() === 'admin';
+
+      if (isAdminLogin) {
+        // Try admin authentication
+        const adminResponse = await fetch(`${API_URL}/admin/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username: phoneNumber,
+            password: password,
+          }),
+        });
+
+        const adminData = await adminResponse.json();
+
+        if (adminData.success) {
+          Alert.alert('Success', 'Admin login successful!');
+          navigation.navigate('AdminDashboard');
+          return;
+        }
+        // If admin login fails, show error and don't try user login
+        Alert.alert('Error', adminData.message || 'Invalid admin credentials');
+        return;
+      }
+
+      // Regular user login
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: {
@@ -67,14 +96,14 @@ export default function LoginScreen({ navigation }) {
 
         <View style={styles.formContainer}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number</Text>
+            <Text style={styles.label}>Phone Number (or username)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter your phone number"
+              placeholder="Enter your phone number or 'admin'"
               placeholderTextColor="#86efac"
               value={phoneNumber}
               onChangeText={setPhoneNumber}
-              keyboardType="phone-pad"
+              keyboardType="default"
               maxLength={15}
             />
           </View>

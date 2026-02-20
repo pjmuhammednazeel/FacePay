@@ -15,7 +15,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { extractFaceEmbeddingArcFace } from '../utils/faceEmbedding';
-import { verifyLiveness, getLivenessDescription } from '../utils/livenessDetection';
 import API_URL from '../config/api';
 
 export default function PaymentScreen({ navigation, route }) {
@@ -65,22 +64,6 @@ export default function PaymentScreen({ navigation, route }) {
         quality: 0.8,
         base64: true,
       });
-
-      // Verify liveness - ensure face is from a live person
-      Alert.alert('Verifying...', 'Checking if face is live...');
-      const livenessResult = await verifyLiveness(photo.uri, 0.15);
-      
-      if (!livenessResult.verified) {
-        Alert.alert(
-          'Liveness Check Failed',
-          `${livenessResult.message}\n\nLiveness Score: ${livenessResult.liveness_score.toFixed(2)}\n\nPlease try again with a live face.`,
-          [{ text: 'OK', onPress: () => setLoading(false) }]
-        );
-        setLoading(false);
-        return;
-      }
-
-      Alert.alert('Liveness Verified', `Confidence: ${livenessResult.confidence || 'N/A'}`);
 
       // Extract face embedding using ArcFace
       const faceEmbedding = await extractFaceEmbeddingArcFace(photo.uri);

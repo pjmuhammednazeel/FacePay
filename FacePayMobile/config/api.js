@@ -9,8 +9,8 @@ const API_CONFIG = {
   USE_EMULATOR: false, // Set to false if using physical device
   
   // For physical device, update this with your machine's actual IP
-  // (auto-detected from your recent `ipconfig`: 177.22.0.11)
-  PHYSICAL_DEVICE_IP: '177.22.0.11',
+  // (auto-detected from your recent `ipconfig`: 192.168.1.4)
+  PHYSICAL_DEVICE_IP: '192.168.1.4',
   
   // Port where backend is running
   PORT: 3000

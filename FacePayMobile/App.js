@@ -5,13 +5,16 @@ import HomeScreen from './screens/HomeScreen';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import DashboardScreen from './screens/DashboardScreen';
+import AdminDashboardScreen from './screens/AdminDashboardScreen';
 import PaymentScreen from './screens/PaymentScreen';
 import TransactionsScreen from './screens/TransactionsScreen';
 import ChangePasswordScreen from './screens/ChangePasswordScreen';
+import API_URL from './config/api';
 
 const Stack = createStackNavigator();
 
 export default function App() {
+  console.log('FacePay API_URL:', API_URL);
   return (
     <NavigationContainer>
       <Stack.Navigator 
@@ -45,6 +48,11 @@ export default function App() {
           name="Dashboard" 
           component={DashboardScreen}
           options={{ title: 'Dashboard', headerBackVisible: false }}
+        />
+        <Stack.Screen 
+          name="AdminDashboard" 
+          component={AdminDashboardScreen}
+          options={{ title: 'Admin Dashboard', headerBackVisible: false }}
         />
         <Stack.Screen 
           name="Payment" 

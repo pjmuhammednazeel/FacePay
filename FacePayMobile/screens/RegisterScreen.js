@@ -204,7 +204,7 @@ export default function RegisterScreen({ navigation }) {
                   style={styles.faceUploadButton} 
                   onPress={pickFaceImage}
                 >
-                  <Text style={styles.faceUploadButtonText}>📷 Upload Face Photo</Text>
+                  <Text style={styles.faceUploadButtonText}>� Upload Face Photo</Text>
                   <Text style={styles.faceUploadSubtext}>Select a clear photo of your face</Text>
                   <Text style={styles.faceUploadHint}>(Embedding will be extracted automatically)</Text>
                 </TouchableOpacity>

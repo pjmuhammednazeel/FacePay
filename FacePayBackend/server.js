@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const pool = require('./db');
 const { validateAccountAndPhone, getAccountBalance, initiateTransfer } = require('./bankApi');
 const insightFaceService = require('./insightFaceService');
-const livenessDetectionService = require('./livenessDetectionService');
 require('dotenv').config();
 
 const app = express();
@@ -468,14 +467,39 @@ app.post('/api/make-payment', async (req, res) => {
 app.get('/api/transactions', async (req, res) => {
   const { userId, limit = 50, offset = 0 } = req.query;
 
-  if (!userId) {
-    return res.status(400).json({
-      success: false,
-      message: 'userId is required'
-    });
-  }
-
   try {
+    // If no userId provided, return all transactions (for admin)
+    if (!userId) {
+      const result = await pool.query(
+        `SELECT 
+           t.id,
+           t.amount,
+           t.status,
+           t.created_at AS transaction_date,
+           t.face_match_similarity,
+           s.id AS sender_id,
+           s.name AS sender_name,
+           s.account_number AS sender_account,
+           s.bank_name AS sender_bank,
+           r.id AS receiver_id,
+           r.name AS receiver_name,
+           r.account_number AS receiver_account,
+           r.bank_name AS receiver_bank
+         FROM transactions t
+         JOIN users s ON t.sender_id = s.id
+         JOIN users r ON t.receiver_id = r.id
+         ORDER BY t.created_at DESC
+         LIMIT $1 OFFSET $2`,
+        [Number(limit), Number(offset)]
+      );
+
+      return res.json({
+        success: true,
+        transactions: result.rows
+      });
+    }
+
+    // Return transactions for specific user
     const result = await pool.query(
       `SELECT 
          t.id,
@@ -513,102 +537,7 @@ app.get('/api/transactions', async (req, res) => {
   }
 });
 
-// Liveness Detection endpoint
-// Detects if a face is from a live person or spoofed (photo, video, mask, etc.)
-app.post('/api/detect-liveness', async (req, res) => {
-  console.log('=== Received detect-liveness request ===');
-  const { image } = req.body;
 
-  if (!image) {
-    console.log('No image provided in request body');
-    return res.status(400).json({
-      success: false,
-      message: 'Image data is required'
-    });
-  }
-
-  try {
-    console.log('Calling livenessDetectionService.detectLiveness...');
-    const livenessResult = await livenessDetectionService.detectLiveness(image);
-    
-    if (!livenessResult.success) {
-      console.warn('Liveness detection failed:', livenessResult.error);
-      return res.status(400).json({
-        success: false,
-        message: livenessResult.error || 'Liveness detection failed'
-      });
-    }
-
-    console.log(`Liveness score: ${livenessResult.liveness_score.toFixed(2)}, Is Live: ${livenessResult.is_live}`);
-    
-    res.json({
-      success: true,
-      message: 'Liveness detection completed',
-      liveness_score: livenessResult.liveness_score,
-      is_live: livenessResult.is_live,
-      confidence: livenessResult.confidence,
-      details: livenessResult.details
-    });
-
-  } catch (error) {
-    console.error('Liveness detection error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error during liveness detection'
-    });
-  }
-});
-
-// Verify Liveness with Threshold endpoint
-// More strict liveness verification for sensitive operations
-app.post('/api/verify-liveness', async (req, res) => {
-  console.log('=== Received verify-liveness request ===');
-  const { image, threshold = 0.5 } = req.body;
-
-  if (!image) {
-    console.log('No image provided in request body');
-    return res.status(400).json({
-      success: false,
-      verified: false,
-      message: 'Image data is required'
-    });
-  }
-
-  try {
-    console.log(`Calling livenessDetectionService.verifyLiveness with threshold: ${threshold}...`);
-    const verificationResult = await livenessDetectionService.verifyLiveness(image, threshold);
-    
-    if (!verificationResult.success) {
-      console.warn('Liveness verification failed:', verificationResult.error);
-      return res.status(400).json({
-        success: false,
-        verified: false,
-        message: verificationResult.error || 'Liveness verification failed'
-      });
-    }
-
-    console.log(`Verification result: verified=${verificationResult.verified}, liveness_score=${verificationResult.liveness_score.toFixed(2)}`);
-    
-    res.json({
-      success: true,
-      verified: verificationResult.verified,
-      message: verificationResult.message,
-      liveness_score: verificationResult.liveness_score,
-      is_live: verificationResult.is_live,
-      confidence: verificationResult.confidence,
-      threshold: verificationResult.threshold,
-      details: verificationResult.details
-    });
-
-  } catch (error) {
-    console.error('Liveness verification error:', error);
-    res.status(500).json({
-      success: false,
-      verified: false,
-      message: 'Server error during liveness verification'
-    });
-  }
-});
 
 // Change Password endpoint
 app.post('/api/change-password', async (req, res) => {
@@ -678,59 +607,167 @@ app.post('/api/change-password', async (req, res) => {
   }
 });
 
-// Extract ArcFace Embedding with Liveness Check endpoint
-// Combines embedding extraction with liveness detection
-app.post('/api/extract-embedding-with-liveness', async (req, res) => {
-  console.log('=== Received extract-embedding-with-liveness request ===');
-  const { image, liveness_threshold = 0.5 } = req.body;
 
-  if (!image) {
-    console.log('No image provided in request body');
+
+// Get all users endpoint (for admin)
+app.get('/api/users', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+         id,
+         name,
+         phone_number AS "phoneNumber",
+         account_number AS "accountNumber",
+         bank_name AS "bankName",
+         created_at AS "createdAt"
+       FROM users
+       ORDER BY created_at DESC`
+    );
+
+    res.json({
+      success: true,
+      users: result.rows
+    });
+  } catch (error) {
+    console.error('Users fetch error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch users'
+    });
+  }
+});
+
+
+
+// Delete user endpoint (for admin)
+app.delete('/api/users/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // First, delete all transactions for this user
+    await pool.query(
+      'DELETE FROM transactions WHERE sender_id = $1 OR receiver_id = $1',
+      [id]
+    );
+
+    // Then delete the user
+    const result = await pool.query(
+      'DELETE FROM users WHERE id = $1 RETURNING id, name, phone_number',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    console.log(`User deleted: ${result.rows[0].name} (${result.rows[0].phone_number})`);
+
+    res.json({
+      success: true,
+      message: 'User deleted successfully',
+      deletedUser: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete user'
+    });
+  }
+});
+
+// Create sub-admin endpoint
+app.post('/api/admin/create', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
     return res.status(400).json({
       success: false,
-      message: 'Image data is required'
+      message: 'Username and password are required'
     });
   }
 
   try {
-    // First, check liveness
-    console.log('Step 1: Checking liveness...');
-    const livenessResult = await livenessDetectionService.verifyLiveness(image, liveness_threshold);
-    
-    if (!livenessResult.verified) {
-      console.warn('Liveness verification failed');
+    // Check if username already exists
+    const existingAdmin = await pool.query(
+      'SELECT * FROM admins WHERE username = $1',
+      [username]
+    );
+
+    if (existingAdmin.rows.length > 0) {
       return res.status(400).json({
         success: false,
-        message: 'Face is not live. Liveness verification failed.',
-        liveness_verified: false,
-        liveness_score: livenessResult.liveness_score
+        message: 'Username already exists'
       });
     }
 
-    console.log('Step 2: Liveness verified. Extracting embedding...');
-    
-    // If liveness check passed, extract embedding
-    const embedding = await insightFaceService.extractEmbedding(image);
-    
-    console.log(`Successfully extracted embedding with ${embedding.length} dimensions`);
-    
-    res.json({
-      success: true,
-      message: 'Embedding extracted and liveness verified',
-      embedding: embedding,
-      liveness_verified: true,
-      liveness_score: livenessResult.liveness_score,
-      liveness_details: livenessResult.details
-    });
+    // Insert new admin (storing plain text password as per your requirement)
+    const result = await pool.query(
+      'INSERT INTO admins (username, password) VALUES ($1, $2) RETURNING id, username',
+      [username, password]
+    );
 
+    console.log(`Sub-admin created: ${username}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Sub-admin created successfully',
+      admin: result.rows[0]
+    });
   } catch (error) {
-    console.error('Error in extract-embedding-with-liveness:', error);
+    console.error('Create sub-admin error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during embedding extraction with liveness check'
+      message: 'Failed to create sub-admin'
     });
   }
 });
+
+// Admin login endpoint (validate against admins table)
+app.post('/api/admin/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Username and password are required'
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      'SELECT * FROM admins WHERE username = $1 AND password = $2',
+      [username, password]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Admin login successful',
+      admin: {
+        id: result.rows[0].id,
+        username: result.rows[0].username
+      }
+    });
+  } catch (error) {
+    console.error('Admin login error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during admin login'
+    });
+  }
+});
+
+
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
