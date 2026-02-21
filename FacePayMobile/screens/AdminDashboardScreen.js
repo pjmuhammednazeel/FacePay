@@ -176,7 +176,7 @@ export default function AdminDashboardScreen({ navigation }) {
   const handleSystemHealth = () => {
     Alert.alert(
       'System Health',
-      '✅ Server: Running\n✅ Database: Connected\n✅ Face Recognition: Active\n✅ Liveness Detection: Active',
+      '✅ Server: Running\n✅ Database: Connected\n✅ Face Recognition: Active',
       [{ text: 'OK' }]
     );
   };

@@ -1,16 +1,32 @@
-const { spawn } = require('child_process');
-const path = require('path');
-const fs = require('fs').promises;
+const axios = require('axios');
 
 /**
  * InsightFace ArcFace Service
  * This service handles face detection and embedding extraction using InsightFace
+ * Now uses persistent Python server for 10x faster face recognition
  */
 
 class InsightFaceService {
   constructor() {
-    this.pythonScript = path.join(__dirname, 'insightface_processor_simple.py');
+    this.pythonServerUrl = 'http://127.0.0.1:5001';
     this.modelReady = false;
+    this.checkServerHealth();
+  }
+
+  /**
+   * Check if Python server is healthy and ready
+   */
+  async checkServerHealth() {
+    try {
+      const response = await axios.get(`${this.pythonServerUrl}/health`, { timeout: 2000 });
+      this.modelReady = response.data.status === 'ready';
+      if (this.modelReady) {
+        console.log('✓ InsightFace server is ready');
+      }
+    } catch (error) {
+      console.warn('⚠ InsightFace server not responding. Make sure insightface_server.py is running.');
+      this.modelReady = false;
+    }
   }
 
   /**
@@ -20,88 +36,29 @@ class InsightFaceService {
    */
   async extractEmbedding(base64Image) {
     try {
-      // Create temporary file for image
-      const tempImagePath = path.join(__dirname, 'temp', `temp_${Date.now()}.jpg`);
-      
-      // Ensure temp directory exists
-      await fs.mkdir(path.join(__dirname, 'temp'), { recursive: true });
-      
-      // Write base64 image to file
-      const imageBuffer = Buffer.from(base64Image, 'base64');
-      await fs.writeFile(tempImagePath, imageBuffer);
+      // Send image to persistent Python server
+      const response = await axios.post(
+        `${this.pythonServerUrl}/extract-embedding`,
+        { image: base64Image },
+        { 
+          timeout: 10000,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
 
-      // Call Python script to process with InsightFace
-      const embedding = await this.runPythonScript(tempImagePath);
-
-      // Clean up temp file
-      await fs.unlink(tempImagePath).catch(() => {});
-
-      return embedding;
+      if (response.data.success && response.data.embedding) {
+        return response.data.embedding;
+      } else {
+        throw new Error(response.data.error || 'Failed to extract embedding');
+      }
     } catch (error) {
-      console.error('InsightFace extraction error:', error);
+      if (error.code === 'ECONNREFUSED') {
+        console.error('InsightFace server is not running. Start it with: python insightface_server.py');
+        throw new Error('Face recognition service unavailable. Please contact administrator.');
+      }
+      console.error('InsightFace extraction error:', error.message);
       throw error;
     }
-  }
-
-  /**
-   * Run Python script for face embedding extraction
-   * @param {string} imagePath - Path to image file
-   * @returns {Promise<Array<number>>} - Face embedding
-   */
-  runPythonScript(imagePath) {
-    return new Promise((resolve, reject) => {
-      const python = spawn('python', [this.pythonScript, imagePath]);
-      let output = '';
-      let errorOutput = '';
-
-      python.stdout.on('data', (data) => {
-        output += data.toString();
-      });
-
-      python.stderr.on('data', (data) => {
-        errorOutput += data.toString();
-      });
-
-      python.on('close', (code) => {
-        if (code !== 0) {
-          reject(new Error(`Python script failed with code ${code}: ${errorOutput}`));
-          return;
-        }
-
-        try {
-          // Trim output and look for JSON
-          const trimmedOutput = output.trim();
-          
-          // Try to find JSON object in the output
-          let result;
-          try {
-            // First try direct parsing
-            result = JSON.parse(trimmedOutput);
-          } catch (e1) {
-            // If that fails, try to extract JSON from output
-            const jsonStart = trimmedOutput.indexOf('{');
-            const jsonEnd = trimmedOutput.lastIndexOf('}');
-            
-            if (jsonStart !== -1 && jsonEnd !== -1) {
-              const jsonStr = trimmedOutput.substring(jsonStart, jsonEnd + 1);
-              result = JSON.parse(jsonStr);
-            } else {
-              throw new Error(`No JSON found. Raw output: ${trimmedOutput.substring(0, 150)}`);
-            }
-          }
-          
-          if (result.error) {
-            reject(new Error(result.error));
-          } else if (result.embedding) {
-            resolve(result.embedding);
-          } else {
-            reject(new Error(`Invalid response from Python script: ${JSON.stringify(result)}`));
-          }
-        } catch (error) {
-          reject(new Error(`Failed to parse Python output: ${error.message}`));
-        }
-      });
-    });
   }
 
   /**
