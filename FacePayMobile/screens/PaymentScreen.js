@@ -23,6 +23,7 @@ export default function PaymentScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   const [receiverInfo, setReceiverInfo] = useState(null);
   const [amount, setAmount] = useState('');
+  const [password, setPassword] = useState('');
   const [cameraFacing, setCameraFacing] = useState('front');
   const cameraRef = useRef(null);
   const user = route.params?.user || {};
@@ -122,6 +123,11 @@ export default function PaymentScreen({ navigation, route }) {
       return;
     }
 
+    if (!password || password.trim() === '') {
+      Alert.alert('Error', 'Please enter your password to confirm payment');
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch(`${API_URL}/make-payment`, {
@@ -130,9 +136,10 @@ export default function PaymentScreen({ navigation, route }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          senderId: receiverInfo.id,
-          receiverId: user.id,
+          senderId: user.id,
+          receiverId: receiverInfo.id,
           amount: amountValue,
+          password: password,
         }),
       });
 
@@ -151,6 +158,7 @@ export default function PaymentScreen({ navigation, route }) {
         );
         setReceiverInfo(null);
         setAmount('');
+        setPassword('');
       } else {
         Alert.alert('Error', data.message || 'Payment failed');
       }
@@ -252,6 +260,20 @@ export default function PaymentScreen({ navigation, route }) {
                 value={amount}
                 onChangeText={setAmount}
                 keyboardType="decimal-pad"
+              />
+            </View>
+          )}
+
+          {receiverInfo && (
+            <View style={styles.amountContainer}>
+              <Text style={styles.amountLabel}>Confirm with Password:</Text>
+              <TextInput
+                style={styles.amountInput}
+                placeholder="Enter password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={true}
+                editable={!loading}
               />
             </View>
           )}

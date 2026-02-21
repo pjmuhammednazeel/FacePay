@@ -356,12 +356,19 @@ app.post('/api/identify-receiver', async (req, res) => {
 
 // Make payment endpoint
 app.post('/api/make-payment', async (req, res) => {
-  const { senderId, receiverId, amount, faceSimilarity } = req.body;
+  const { senderId, receiverId, amount, password } = req.body;
 
   if (!senderId || !receiverId || !amount) {
     return res.status(400).json({
       success: false,
       message: 'Sender ID, receiver ID, and amount are required'
+    });
+  }
+
+  if (!password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Password is required for payment verification'
     });
   }
 
@@ -394,6 +401,15 @@ app.post('/api/make-payment', async (req, res) => {
     const senderData = sender.rows[0];
     const receiverData = receiver.rows[0];
 
+    // Verify sender's password
+    const passwordMatch = await bcrypt.compare(password, senderData.password_hash);
+    if (!passwordMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Incorrect password. Payment verification failed.'
+      });
+    }
+
     console.log(`Processing payment: ${senderData.name} (${senderData.account_number}) -> ${receiverData.name} (${receiverData.account_number}), Amount: ₹${amount}`);
 
     // Check sender's account balance with bank API
@@ -420,9 +436,9 @@ app.post('/api/make-payment', async (req, res) => {
     // Store transaction in FacePay DB (best-effort)
     try {
       await pool.query(
-        `INSERT INTO transactions (sender_id, receiver_id, amount, face_match_similarity, status)
-         VALUES ($1, $2, $3, $4, $5)`
-        , [senderId, receiverId, amount, faceSimilarity || null, 'completed']
+        `INSERT INTO transactions (sender_id, receiver_id, amount, status)
+         VALUES ($1, $2, $3, $4)`
+        , [senderId, receiverId, amount, 'completed']
       );
     } catch (dbError) {
       console.warn('Failed to store transaction record:', dbError.message);
@@ -433,14 +449,13 @@ app.post('/api/make-payment', async (req, res) => {
     
     res.json({
       success: true,
-      message: 'Payment processed successfully via face recognition',
+      message: 'Payment processed successfully via face recognition and password verification',
       transaction: {
         from: senderData.name,
         fromAccount: senderData.account_number,
         to: receiverData.name,
         toAccount: receiverData.account_number,
         amount: amount,
-        faceSimilarity: faceSimilarity,
         bankTransactionIdFrom: transferResult.raw?.from_transaction?.id,
         bankTransactionIdTo: transferResult.raw?.to_transaction?.id,
         senderNewBalance: transferResult.raw?.from_account?.balance,
