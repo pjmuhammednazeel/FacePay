@@ -7,17 +7,17 @@
 const API_CONFIG = {
   // Change this to match your setup
   USE_EMULATOR: false, // Set to false if using physical device
-  
+
   // For physical device, update this with your machine's actual IP
   // (auto-detected from your recent `ipconfig`: 192.168.1.4)
-  PHYSICAL_DEVICE_IP: '192.168.1.4',
-  
+  PHYSICAL_DEVICE_IP: '192.168.1.9',
+
   // Port where backend is running
   PORT: 3000
 };
 
 // Automatically select the correct URL
-const API_URL = API_CONFIG.USE_EMULATOR 
+const API_URL = API_CONFIG.USE_EMULATOR
   ? `http://10.0.2.2:${API_CONFIG.PORT}/api`
   : `http://${API_CONFIG.PHYSICAL_DEVICE_IP}:${API_CONFIG.PORT}/api`;
 

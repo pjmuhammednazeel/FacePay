@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DashboardScreen({ navigation, route }) {
-  const [loading, setLoading] = useState(false);
   const user = route.params?.user || {};
 
   const handleLogout = () => {
@@ -18,104 +17,97 @@ export default function DashboardScreen({ navigation, route }) {
       'Logout',
       'Are you sure you want to logout?',
       [
-        { text: 'Cancel', onPress: () => {}, style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Logout',
-          onPress: () => {
-            navigation.reset({
-              index: 0,
-              routes: [{ name: 'Home' }],
-            });
-          },
+          onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Home' }] }),
           style: 'destructive',
         },
       ]
     );
   };
 
-  const handleScanFace = () => {
-    navigation.navigate('Payment', { user });
-  };
-
-  const handleViewTransactions = () => {
-    navigation.navigate('Transactions', { user });
-  };
-
-  const handleChangePassword = () => {
-    navigation.navigate('ChangePassword', { user });
-  };
-
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
+      <View style={styles.header}>
+        <View>
           <Text style={styles.welcomeText}>Welcome Back!</Text>
           <Text style={styles.userName}>{user.name || 'User'}</Text>
         </View>
+        <TouchableOpacity style={styles.logoutHeaderBtn} onPress={handleLogout}>
+          <Text style={styles.logoutHeaderText}>Logout</Text>
+        </TouchableOpacity>
+      </View>
 
-        <View style={styles.cardContainer}>
-          {/* Account Info Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Account Information</Text>
-            <View style={styles.cardContent}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Phone Number:</Text>
-                <Text style={styles.infoValue}>{user.phoneNumber || 'N/A'}</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Account Number:</Text>
-                <Text style={styles.infoValue}>{user.accountNumber || 'N/A'}</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Bank Name:</Text>
-                <Text style={styles.infoValue}>{user.bankName || 'N/A'}</Text>
-              </View>
-            </View>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Account Info Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Account Information</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>📱 Phone</Text>
+            <Text style={styles.infoValue}>{user.phoneNumber || 'N/A'}</Text>
           </View>
-
-          {/* Quick Actions Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Quick Actions</Text>
-            <View style={styles.actionsContainer}>
-              <TouchableOpacity style={[styles.actionButton, styles.scanActionButton]} onPress={handleScanFace}>
-                <Text style={styles.actionButtonText}>📸 Scan Face - Receive Payment</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={handleViewTransactions}>
-                <Text style={styles.actionButtonText}>💳 View Transactions</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={handleChangePassword}>
-                <Text style={styles.actionButtonText}>🔐 Change Password</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>👤 Update Profile</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>💳 Account</Text>
+            <Text style={styles.infoValue}>{user.accountNumber || 'N/A'}</Text>
           </View>
-
-          {/* Account Status Card */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Account Status</Text>
-            <View style={styles.statusContent}>
-              <View style={styles.statusItem}>
-                <View style={styles.statusIndicator} />
-                <Text style={styles.statusText}>Account Active</Text>
-              </View>
-              <View style={styles.statusItem}>
-                <View style={[styles.statusIndicator, { backgroundColor: '#22c55e' }]} />
-                <Text style={styles.statusText}>Face Recognition Enabled</Text>
-              </View>
-            </View>
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>🏦 Bank</Text>
+            <Text style={styles.infoValue}>{user.bankName || 'N/A'}</Text>
           </View>
         </View>
 
-        {/* Logout Button */}
+        {/* Status Card */}
+        <View style={styles.statusCard}>
+          <View style={styles.statusItem}>
+            <View style={[styles.statusDot, { backgroundColor: '#22c55e' }]} />
+            <Text style={styles.statusText}>Account Active</Text>
+          </View>
+          <View style={styles.statusItem}>
+            <View style={[styles.statusDot, { backgroundColor: '#6366f1' }]} />
+            <Text style={styles.statusText}>Face Recognition Enabled</Text>
+          </View>
+        </View>
+
+        {/* Quick Actions */}
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+
         <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
+          style={[styles.actionButton, styles.primaryAction]}
+          onPress={() => navigation.navigate('Payment', { user })}
         >
-          <Text style={styles.logoutButtonText}>Logout</Text>
+          <Text style={styles.actionIcon}>📸</Text>
+          <View style={styles.actionTextContainer}>
+            <Text style={styles.actionTitle}>Scan & Pay</Text>
+            <Text style={styles.actionSubtitle}>Send money via face recognition</Text>
+          </View>
+          <Text style={styles.actionArrow}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('Transactions', { user })}
+        >
+          <Text style={styles.actionIcon}>💳</Text>
+          <View style={styles.actionTextContainer}>
+            <Text style={styles.actionTitle}>Transactions</Text>
+            <Text style={styles.actionSubtitle}>View payment history</Text>
+          </View>
+          <Text style={styles.actionArrow}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('ChangePassword', { user })}
+        >
+          <Text style={styles.actionIcon}>🔐</Text>
+          <View style={styles.actionTextContainer}>
+            <Text style={styles.actionTitle}>Change Password</Text>
+            <Text style={styles.actionSubtitle}>Update security credentials</Text>
+          </View>
+          <Text style={styles.actionArrow}>→</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -125,130 +117,156 @@ export default function DashboardScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0fdf4',
+    backgroundColor: '#f8fafc',
+  },
+  header: {
+    backgroundColor: '#6366f1',
+    padding: 24,
+    paddingBottom: 28,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '500',
+  },
+  userName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginTop: 2,
+  },
+  logoutHeaderBtn: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  logoutHeaderText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 30,
-  },
-  header: {
-    marginBottom: 30,
-    paddingBottom: 20,
-    borderBottomWidth: 2,
-    borderBottomColor: '#bbf7d0',
-  },
-  welcomeText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#14532d',
-    marginBottom: 8,
-  },
-  userName: {
-    fontSize: 18,
-    color: '#16a34a',
-    fontWeight: '600',
-  },
-  cardContainer: {
-    marginBottom: 20,
+    paddingBottom: 40,
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 18,
-    marginBottom: 16,
-    shadowColor: '#000',
+    marginBottom: 14,
+    shadowColor: '#6366f1',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 3,
   },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#14532d',
+    color: '#1e293b',
     marginBottom: 14,
-  },
-  cardContent: {
-    gap: 12,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 8,
   },
   infoLabel: {
     fontSize: 14,
-    color: '#15803d',
-    fontWeight: '600',
-    flex: 1,
+    color: '#64748b',
+    fontWeight: '500',
   },
   infoValue: {
     fontSize: 14,
-    color: '#14532d',
-    fontWeight: '500',
-    flex: 1,
+    color: '#1e293b',
+    fontWeight: '600',
+    maxWidth: '60%',
     textAlign: 'right',
   },
   divider: {
     height: 1,
-    backgroundColor: '#e8f5e9',
+    backgroundColor: '#f1f5f9',
   },
-  actionsContainer: {
-    gap: 10,
-  },
-  actionButton: {
-    backgroundColor: '#f0fdf4',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#16a34a',
-  },  scanActionButton: {
-    backgroundColor: '#cffafe',
-    borderLeftColor: '#06b6d4',
-  },  scanActionButton: {
-    backgroundColor: '#cffafe',
-    borderLeftColor: '#06b6d4',
-  },
-  actionButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#14532d',
-  },
-  statusContent: {
-    gap: 12,
+  statusCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   statusItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
-  statusIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#fbbf24',
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   statusText: {
-    fontSize: 14,
-    color: '#14532d',
+    fontSize: 13,
+    color: '#1e293b',
     fontWeight: '500',
   },
-  logoutButton: {
-    backgroundColor: '#dc2626',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#dc2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 12,
   },
-  logoutButtonText: {
-    color: '#ffffff',
+  actionButton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: '#e0e7ff',
+  },
+  primaryAction: {
+    borderLeftColor: '#6366f1',
+    backgroundColor: '#f5f3ff',
+  },
+  actionIcon: {
+    fontSize: 26,
+  },
+  actionTextContainer: {
+    flex: 1,
+  },
+  actionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  actionSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  actionArrow: {
     fontSize: 18,
+    color: '#6366f1',
     fontWeight: '700',
   },
 });

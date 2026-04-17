@@ -24,11 +24,9 @@ export default function TransactionsScreen({ navigation, route }) {
       setLoading(false);
       return;
     }
-
     try {
       const response = await fetch(`${API_URL}/transactions?userId=${user.id}`);
       const data = await response.json();
-
       if (data.success) {
         setTransactions(data.transactions || []);
         setError('');
@@ -53,11 +51,7 @@ export default function TransactionsScreen({ navigation, route }) {
   };
 
   const formatDate = (value) => {
-    try {
-      return new Date(value).toLocaleString();
-    } catch (e) {
-      return value;
-    }
+    try { return new Date(value).toLocaleString(); } catch { return value; }
   };
 
   const renderItem = ({ item }) => {
@@ -66,25 +60,29 @@ export default function TransactionsScreen({ navigation, route }) {
     const counterpartyName = isSender ? item.receiver_name : item.sender_name;
     const counterpartyAccount = isSender ? item.receiver_account : item.sender_account;
     const counterpartyBank = isSender ? item.receiver_bank : item.sender_bank;
-    const amountColor = isSender ? '#dc2626' : '#16a34a';
+    const amountColor = isSender ? '#ef4444' : '#22c55e';
+    const amountPrefix = isSender ? '−' : '+';
 
     return (
       <View style={styles.transactionCard}>
         <View style={styles.transactionHeader}>
-          <Text style={styles.transactionDirection}>{directionLabel}</Text>
-          <Text style={[styles.amountText, { color: amountColor }]}>₹{Number(item.amount).toFixed(2)}</Text>
+          <View style={[styles.directionBadge, isSender ? styles.sentBadge : styles.receivedBadge]}>
+            <Text style={[styles.directionText, isSender ? styles.sentText : styles.receivedText]}>
+              {directionLabel}
+            </Text>
+          </View>
+          <Text style={[styles.amountText, { color: amountColor }]}>
+            {amountPrefix}₹{Number(item.amount).toFixed(2)}
+          </Text>
         </View>
 
-        <Text style={styles.transactionLine}>Counterparty: {counterpartyName}</Text>
+        <Text style={styles.counterpartyName}>{counterpartyName}</Text>
         <Text style={styles.transactionLine}>Account: {counterpartyAccount}</Text>
         <Text style={styles.transactionLine}>Bank: {counterpartyBank}</Text>
-        <Text style={styles.transactionLine}>Status: {item.status}</Text>
-        {item.face_match_similarity !== null && item.face_match_similarity !== undefined && (
-          <Text style={styles.transactionLine}>
-            Face Match: {(Number(item.face_match_similarity) * 100).toFixed(1)}%
-          </Text>
-        )}
-        <Text style={styles.transactionLine}>Date: {formatDate(item.created_at)}</Text>
+        <View style={styles.transactionFooter}>
+          <Text style={styles.statusBadge}>{item.status}</Text>
+          <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
+        </View>
       </View>
     );
   };
@@ -100,7 +98,7 @@ export default function TransactionsScreen({ navigation, route }) {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#16a34a" />
+          <ActivityIndicator size="large" color="#6366f1" />
         </View>
       ) : error ? (
         <View style={styles.centered}>
@@ -116,10 +114,14 @@ export default function TransactionsScreen({ navigation, route }) {
           renderItem={renderItem}
           contentContainerStyle={transactions.length ? styles.listContent : styles.emptyContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#16a34a" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#6366f1" />
           }
           ListEmptyComponent={
-            <Text style={styles.emptyText}>No transactions yet.</Text>
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>💳</Text>
+              <Text style={styles.emptyText}>No transactions yet</Text>
+              <Text style={styles.emptySubtext}>Your payment history will appear here</Text>
+            </View>
           }
         />
       )}
@@ -130,11 +132,11 @@ export default function TransactionsScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0fdf4',
+    backgroundColor: '#f8fafc',
   },
   header: {
     padding: 20,
-    backgroundColor: '#16a34a',
+    backgroundColor: '#6366f1',
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -156,15 +158,15 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    color: '#dc2626',
+    color: '#ef4444',
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   retryButton: {
-    backgroundColor: '#16a34a',
+    backgroundColor: '#6366f1',
     paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     borderRadius: 10,
   },
   retryText: {
@@ -172,7 +174,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   listContent: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 30,
   },
   emptyContent: {
@@ -181,20 +183,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  emptyContainer: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
   emptyText: {
+    color: '#1e293b',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  emptySubtext: {
     color: '#64748b',
-    fontSize: 16,
+    fontSize: 14,
   },
   transactionCard: {
     backgroundColor: '#ffffff',
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: '#6366f1',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowRadius: 6,
     elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: '#e0e7ff',
   },
   transactionHeader: {
     flexDirection: 'row',
@@ -202,18 +219,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  transactionDirection: {
-    fontSize: 16,
+  directionBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+  },
+  sentBadge: {
+    backgroundColor: '#fee2e2',
+  },
+  receivedBadge: {
+    backgroundColor: '#dcfce7',
+  },
+  directionText: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#14532d',
+  },
+  sentText: {
+    color: '#ef4444',
+  },
+  receivedText: {
+    color: '#16a34a',
   },
   amountText: {
-    fontSize: 18,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  counterpartyName: {
+    fontSize: 16,
     fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 4,
   },
   transactionLine: {
-    fontSize: 14,
-    color: '#14532d',
+    fontSize: 13,
+    color: '#64748b',
     marginTop: 2,
+  },
+  transactionFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  statusBadge: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6366f1',
+    backgroundColor: '#e0e7ff',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    textTransform: 'capitalize',
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#94a3b8',
   },
 });

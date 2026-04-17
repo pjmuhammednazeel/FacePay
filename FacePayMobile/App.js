@@ -17,58 +17,20 @@ export default function App() {
   console.log('FacePay API_URL:', API_URL);
   return (
     <NavigationContainer>
-      <Stack.Navigator 
+      <Stack.Navigator
         initialRouteName="Home"
         screenOptions={{
-          headerStyle: {
-            backgroundColor: '#16a34a',
-          },
-          headerTintColor: '#ffffff',
-          headerTitleStyle: {
-            fontWeight: '700',
-          },
+          headerShown: false,
         }}
       >
-        <Stack.Screen 
-          name="Home" 
-          component={HomeScreen}
-          options={{ title: 'FacePay' }}
-        />
-        <Stack.Screen 
-          name="Login" 
-          component={LoginScreen}
-          options={{ title: 'Login' }}
-        />
-        <Stack.Screen 
-          name="Register" 
-          component={RegisterScreen}
-          options={{ title: 'Register' }}
-        />
-        <Stack.Screen 
-          name="Dashboard" 
-          component={DashboardScreen}
-          options={{ title: 'Dashboard', headerBackVisible: false }}
-        />
-        <Stack.Screen 
-          name="AdminDashboard" 
-          component={AdminDashboardScreen}
-          options={{ title: 'Admin Dashboard', headerBackVisible: false }}
-        />
-        <Stack.Screen 
-          name="Payment" 
-          component={PaymentScreen}
-          options={{ title: 'Receive Payment', headerShown: false }}
-        />
-        <Stack.Screen 
-          name="Transactions" 
-          component={TransactionsScreen}
-          options={{ title: 'Transactions', headerShown: false }}
-        />
-        <Stack.Screen 
-          name="ChangePassword" 
-          component={ChangePasswordScreen}
-          options={{ title: 'Change Password', headerShown: false }}
-        />
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="Dashboard" component={DashboardScreen} />
+        <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+        <Stack.Screen name="Payment" component={PaymentScreen} />
+        <Stack.Screen name="Transactions" component={TransactionsScreen} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       </Stack.Navigator>
       <StatusBar style="auto" />
     </NavigationContainer>
