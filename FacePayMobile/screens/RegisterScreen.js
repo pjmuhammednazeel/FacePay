@@ -32,10 +32,30 @@ export default function RegisterScreen({ navigation }) {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const takePhoto = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission Required', 'Camera permission is required to take a photo');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+      cameraType: ImagePicker.CameraType.front,
+    });
+    if (!result.canceled) {
+      const imageUri = result.assets[0].uri;
+      setFormData(prev => ({ ...prev, faceImage: imageUri }));
+      await extractEmbedding(imageUri);
+    }
+  };
+
   const pickFaceImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
-      Alert.alert('Permission Required', 'Camera roll permission is required to select a photo');
+      Alert.alert('Permission Required', 'Gallery permission is required to select a photo');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -50,6 +70,7 @@ export default function RegisterScreen({ navigation }) {
       await extractEmbedding(imageUri);
     }
   };
+
 
   const extractEmbedding = async (imageUri) => {
     setExtractingEmbedding(true);
@@ -165,7 +186,7 @@ export default function RegisterScreen({ navigation }) {
             </View>
           ) : (
             <View style={styles.faceButtonRow}>
-              <TouchableOpacity style={styles.faceOptionButton} onPress={pickFaceImage}>
+              <TouchableOpacity style={styles.faceOptionButton} onPress={takePhoto}>
                 <Text style={styles.faceOptionIcon}>📷</Text>
                 <Text style={styles.faceOptionText}>Take Photo</Text>
               </TouchableOpacity>

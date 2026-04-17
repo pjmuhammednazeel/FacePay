@@ -10,7 +10,7 @@ const API_CONFIG = {
 
   // For physical device, update this with your machine's actual IP
   // (auto-detected from your recent `ipconfig`: 192.168.1.4)
-  PHYSICAL_DEVICE_IP: '192.168.1.9',
+  PHYSICAL_DEVICE_IP: '10.145.170.25',
 
   // Port where backend is running
   PORT: 3000
